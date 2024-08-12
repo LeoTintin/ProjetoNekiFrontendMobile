@@ -10,30 +10,27 @@ export const styled = StyleSheet.create({
         justifyContent: 'center',
         flex: 1,
     },
-
+     
     Input:{
         backgroundColor: "transparent",
-        // borderWidth: 2,
-        // borderColor: 'rgba(255, 255, 255, 0.2)',
-        // borderRadius: 40,
         borderBottomColor:'rgba(255, 255, 255, 0.2)',
         borderBottomWidth:1,
         fontSize: 20,
         color: '#fff',
-        paddingVertical: 20, // Padding vertical uniforme
-        paddingHorizontal: 45, // Padding horizontal
+        paddingVertical: 20,
+        paddingHorizontal: 45,
         paddingLeft: 20,
         marginTop:10
     },
     Button:{
-        width: '100%',
+        width: '90%',
         height: 45,
-        backgroundColor: 'rgba(255, 255, 255, 0.8)', // Fundo transparente
+        backgroundColor: 'rgba(255, 255, 255,1)',
         borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
         marginTop: 10,
-        borderColor: '#fff', // Cor da borda
+        borderColor: '#fff',
         borderWidth: 1, 
     },
     Button2:{
@@ -44,9 +41,22 @@ export const styled = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginTop: 10,
-        borderColor: '#aaa', // Cor da borda
+        borderColor: '#aaa',
         borderWidth: 1, 
     },
+
+    Button3:{
+        width: '90%',
+        height: 45,
+        backgroundColor: '#000',
+        borderRadius: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 10,
+        borderColor: '#aaa',
+        borderWidth: 1, 
+    },
+
     checkboxContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -57,18 +67,6 @@ export const styled = StyleSheet.create({
         fontSize: 16,
         color: '#333333',
       },
-    Button3:{
-        width: 200,
-        height: 45,
-        backgroundColor: '#000',
-        borderRadius: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 10,
-        borderColor: '#aaa', // Cor da borda
-        borderWidth: 1, 
-    },
-
     Text:{
         color:'#fff',
         fontSize:18

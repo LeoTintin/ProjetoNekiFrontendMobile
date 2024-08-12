@@ -73,16 +73,19 @@ const LoginScreen = ({ navigation }: any) => {
       source={{ uri: 'https://t3.ftcdn.net/jpg/01/09/93/84/360_F_109938452_lyfzlslq2nDMMxmnxVZUIsD2UujLKsbw.jpg' }}
       style={styles.backgroundImage}
     >
+        <Text style={styles.title}>Login</Text>  
       <View style={styles.container}>
         <TextInput
           style={styled.Input}
           placeholder="Login"
+          placeholderTextColor='#fff'
           value={login}
           onChangeText={setLogin}
         />
         <TextInput
           style={styled.Input}
           placeholder="Senha"
+          placeholderTextColor='#fff'
           secureTextEntry={!showPassword}
           value={password}
           onChangeText={setPassword}
@@ -107,6 +110,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: "#fff"
   },
   container: {
     width: '80%',

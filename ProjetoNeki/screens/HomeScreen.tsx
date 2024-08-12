@@ -9,6 +9,7 @@ import {
   Modal,
   TouchableOpacity,
   Image,
+  TextInput,
   StyleSheet,
   ImageBackground,
 } from 'react-native';
@@ -36,6 +37,7 @@ const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [showLevelModal, setShowLevelModal] = useState<boolean>(false);
+  const [showDescriptionModal, setShowDescriptionModal] = useState<boolean>(false); // Novo estado para o modal de descrição
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [newLevel, setNewLevel] = useState<string>('');
@@ -80,14 +82,12 @@ const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
           const response = await fetch(`http://10.0.2.2:8080/usuarios/skills/${userId}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json', // Adicione o Content-Type se a API exigir
+              'Content-Type': 'application/json',
             },
           });
   
           if (!response.ok) throw new Error('Erro ao carregar skills');
           const data = await response.json();
-          
-          // Verifique o formato dos dados retornados
           console.log('Skills carregadas:', data);
           setSkills(data);
         } catch (error) {
@@ -98,25 +98,23 @@ const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
         }
       }
     };
-  
+
     const fetchAvailableSkills = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
-          if (!token) throw new Error('Token não encontrado');
+        if (!token) throw new Error('Token não encontrado');
         const response = await fetch('http://10.0.2.2:8080/skills', {
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json', // Adicione o Content-Type se a API exigir
+            'Content-Type': 'application/json',
           },
         });
-    
+
         if (!response.ok) {
           throw new Error(`Erro ao carregar habilidades disponíveis: ${response.statusText}`);
         }
-    
+
         const data = await response.json();
-    
-        // Verifique o formato dos dados retornados
         console.log('Habilidades disponíveis carregadas:', data);
         setAvailableSkills(data);
       } catch (error) {
@@ -124,12 +122,10 @@ const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
         Alert.alert('Erro', 'Não foi possível carregar as habilidades disponíveis.');
       }
     };
-    
-  
+
     fetchSkills();
     fetchAvailableSkills();
   }, [userId]);
-  
 
   const handleDeleteSkill = async (id: string) => {
     try {
@@ -155,7 +151,7 @@ const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
       try {
         const token = await AsyncStorage.getItem('token');
         if (!token) throw new Error('Token não encontrado');
-  
+
         const response = await fetch(`http://10.0.2.2:8080/usuarios/skills/${userId}/${editingSkillId}`, {
           method: 'PUT',
           headers: {
@@ -166,7 +162,7 @@ const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
             level: level,
           }),
         });
-  
+
         if (!response.ok) throw new Error('Erro ao atualizar skill');
         const updatedSkill = await response.json();
         setSkills(prevSkills => prevSkills.map(skill =>
@@ -179,7 +175,6 @@ const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
       }
     }
   };
-  
 
   const handleSaveSkill = async () => {
     if (selectedOption && userId) {
@@ -219,6 +214,11 @@ const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
     setShowLevelModal(true);
   };
 
+  const handleOpenDescriptionModal = (skill: Skill) => {
+    setSelectedSkill(skill);
+    setShowDescriptionModal(true);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -237,96 +237,124 @@ const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
         <View style={styles.skillset}>
           {skills.map(skill => (
             <View key={skill.id} style={styles.skill}>
-              <TouchableOpacity onPress={() => setSelectedSkill(skill)}>
+              <TouchableOpacity onPress={() => handleOpenDescriptionModal(skill)}>
                 <Image source={{ uri: skill.imagemUrl }} style={styles.image} />
               </TouchableOpacity>
-              <Text style={styles.name}>{skill.nome}</Text>
-              <TouchableOpacity style={styles.button} onPress={() => handleOpenLevelModal(skill.id, skill.level || '')}>
-                <Text style={styles.buttonText}>{skill.level || 'Definir Nível'}</Text>
+              <Text style={styled.Text2}>{skill.nome}</Text>
+              <TouchableOpacity style={styled.Button} onPress={() => handleOpenLevelModal(skill.id, skill.level || '')}>
+                <Text style={styled.Text2}>{skill.level || 'Definir nível'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={() => handleDeleteSkill(skill.id)}>
-                <Text style={styles.buttonText}>Excluir</Text>
+              <TouchableOpacity style={styled.Button3} onPress={() => handleDeleteSkill(skill.id)}>
+                <Text style={styled.Text}>Excluir</Text>
               </TouchableOpacity>
             </View>
           ))}
         </View>
-
-        <TouchableOpacity style={styles.button} onPress={handleOpenModal}>
-          <Text style={styles.buttonText}>Adicionar Skill</Text>
+        <TouchableOpacity style={styled.Button2} onPress={handleOpenModal}>
+          <Text style={styled.Text}>Adicionar Skill</Text>
         </TouchableOpacity>
+      </ScrollView>
 
-        <Modal visible={showModal} transparent={true} animationType="slide">
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Adicionar Skill</Text>
-              <View style={styles.modalActions}>
-                {availableSkills.map(skill => (
-                  <TouchableOpacity style={styles.button} key={skill.id} onPress={() => { setSelectedOption(skill.id); handleSaveSkill(); }}>
-                    <Text style={styles.buttonText}>{skill.nome}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TouchableOpacity style={styles.button} onPress={handleCloseModal}>
-                <Text style={styles.buttonText}>Fechar</Text>
-              </TouchableOpacity>
-            </View>
+      {/* Modal de Descrição */}
+      <Modal
+        visible={showDescriptionModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDescriptionModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            {selectedSkill && (
+              <>
+                <Text style={styles.modalTitle}>{selectedSkill.nome}</Text>
+                <Text style={styled.Text2}>{selectedSkill.descricao}</Text>
+                <TouchableOpacity style={styled.Button2} onPress={() => setShowDescriptionModal(false)}>
+                  <Text style={styled.Text}>Fechar</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
-        </Modal>
+        </View>
+      </Modal>
 
-        <Modal visible={showLevelModal} transparent={true} animationType="slide">
+      {/* Modal para Adicionar Skill */}
+      <Modal
+        visible={showModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Adicionar Skill</Text>
+            <ScrollView>
+              {availableSkills.map(skill => (
+                <TouchableOpacity 
+                  key={skill.id}
+                  style={styles.modalButton}
+                  onPress={() => setSelectedOption(skill.id)}
+                >
+                  <Text style={styled.Text2}>{skill.nome}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styled.Button2} onPress={handleSaveSkill}>
+              <Text style={styles.modalButtonText}>Adicionar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styled.Button2} onPress={() => setShowModal(false)}>
+              <Text style={styles.modalButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal para Editar Nível */}
+      <Modal visible={showLevelModal} transparent={true} animationType="slide">
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Alterar Nível</Text>
-              <TouchableOpacity style={styles.button} onPress={() => handleLevelChange('INICIANTE')}>
-                <Text style={styles.buttonText}>Iniciante</Text>
+              <TouchableOpacity style={styled.Button} onPress={() => handleLevelChange('INICIANTE')}>
+                <Text style={styled.Text2}>Iniciante</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={() => handleLevelChange('INTERMEDIARIO')}>
-                <Text style={styles.buttonText}>Intermediário</Text>
+              <TouchableOpacity style={styled.Button} onPress={() => handleLevelChange('INTERMEDIARIO')}>
+                <Text style={styled.Text2}>Intermediário</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={() => handleLevelChange('AVANCADO')}>
-                <Text style={styles.buttonText}>Avançado</Text>
+              <TouchableOpacity style={styled.Button} onPress={() => handleLevelChange('AVANCADO')}>
+                <Text style={styled.Text2}>Avançado</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={() => setShowLevelModal(false)}>
-                <Text style={styles.buttonText}>Fechar</Text>
+              <TouchableOpacity style={styled.Button2} onPress={() => setShowLevelModal(false)}>
+                <Text style={styled.Text}>Fechar</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
-      </ScrollView>
     </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 20,
-  },
   backgroundImage: {
     flex: 1,
   },
+  container: {
+    flexGrow: 1,
+    alignItems: 'center',
+    padding: 20,
+  },
   title: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginVertical: 20,
+    marginBottom: 20,
+    color: "#fff"
   },
   skillset: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    width: '80%',
+    backgroundColor:  "#D3D3D3",
+    borderRadius:23
   },
   skill: {
-    width: '48%',
-    marginBottom: 20,
-    padding: 10,
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    marginBottom: 15,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   image: {
     width: 100,
@@ -334,42 +362,58 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   name: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginVertical: 10,
-  },
-  button: {
-    backgroundColor: '#007BFF',
-    padding: 10,
-    borderRadius: 5,
+    fontSize: 18,
     marginVertical: 5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
   },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
   modalContent: {
     width: '80%',
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#D3D3D3',
     borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  modalDescription: {
+    fontSize: 16,
     marginBottom: 20,
   },
-  modalActions: {
-    marginBottom: 20,
+  modalButton: {
+    width:330,
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 25,
+    marginVertical: 5,
+    alignItems:'center'
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  optionButton: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  },
+  optionText: {
+    fontSize: 16,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 10,
+    width: '100%',
+    marginBottom: 10,
   },
   loadingContainer: {
     flex: 1,

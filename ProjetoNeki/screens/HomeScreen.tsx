@@ -79,7 +79,7 @@ const Home: React.FC = ({ navigation }: any) => {
         } catch (error) {
           console.error('Erro ao carregar skills:', error);
           Alert.alert('Erro', 'Não foi possível carregar as skills.');
-        } finally {
+        } finally {''
           setLoading(false);
         }
       }

@@ -253,6 +253,9 @@ const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
         <TouchableOpacity style={styled.Button2} onPress={handleOpenModal}>
           <Text style={styled.Text}>Adicionar Skill</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styled.Button2} onPress={() => navigation.navigate('SignUp')}>
+          <Text style={styled.Text}>Cadastro</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Modal de Descrição */}

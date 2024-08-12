@@ -97,9 +97,6 @@ const LoginScreen = ({ navigation }: any) => {
         <TouchableOpacity style={styled.Button2} onPress={handleLogin}>
           <Text style={styled.Text}>Login</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styled.Button2} onPress={() => navigation.navigate('SignUp')}>
-          <Text style={styled.Text}>Cadastre-se</Text>
-        </TouchableOpacity>
       </View>
     </ImageBackground>
   );

@@ -11,6 +11,8 @@ const LoginScreen = ({ navigation }: any) => {
 
   const handleLogin = async () => {
     if (login && password) {
+      console.log('Login attempt:', login, password); // Log para depuração
+
       try {
         const response = await fetch('http://10.0.2.2:8080/auth/login', {
           method: 'POST',
@@ -23,9 +25,12 @@ const LoginScreen = ({ navigation }: any) => {
           }),
         });
 
+        console.log('Response status:', response.status); // Log para depuração
+
         if (response.ok) {
-          // Assuming login is successful
           const responseData = await response.json();
+          const { token } = responseData; // Certifique-se de que o token está sendo retornado
+
           if (rememberMe) {
             await AsyncStorage.setItem('login', login);
             await AsyncStorage.setItem('password', password);
@@ -33,12 +38,18 @@ const LoginScreen = ({ navigation }: any) => {
             await AsyncStorage.removeItem('login');
             await AsyncStorage.removeItem('password');
           }
+          
+          // Armazena o token no AsyncStorage
+          await AsyncStorage.setItem('token', token);
+
+          console.log('Login successful, navigating to Home'); // Log para depuração
           navigation.navigate('Home');
         } else {
           const errorData = await response.json();
           Alert.alert('Error', errorData.message || 'Login falhou');
         }
       } catch (error) {
+        console.error('Error during login:', error); // Log para depuração
         Alert.alert('Error', 'Erro na conexão com o servidor');
       }
     } else {

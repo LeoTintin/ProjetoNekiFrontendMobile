@@ -1,132 +1,252 @@
-import React, { useState } from 'react';
-import { View, Text, Image, Button, Modal, TouchableOpacity, StyleSheet } from 'react-native';
-import { styled } from './style';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  FlatList,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  Text,
+  Modal,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  Button
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {jwtDecode} from 'jwt-decode';
+
+// Define a interface para Skill
 interface Skill {
-  id: number;
-  imageUrl: string;
-  name: string;
-  level: string;
-  description: string;
+  id: string;
+  nome: string;
+  descricao: string;
+  imagemUrl: string;
+  level?: string;
 }
 
-const initialSkills: Skill[] = [
-  {
-    id: 1,
-    imageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSg1MndL-Xp1JcnqaB0YOqTp6zDjrwYyGKsPA&s',
-    name: 'React',
-    level: 'Iniciante',
-    description: 'O React é uma biblioteca front-end JavaScript de código aberto com foco em criar interfaces de usuário em páginas web.',
-  },
-  {
-    id: 2,
-    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Unofficial_JavaScript_logo_2.svg/1200px-Unofficial_JavaScript_logo_2.svg.png',
-    name: 'Java',
-    level: 'Intermediário',
-    description: 'JavaScript é uma linguagem de programação interpretada estruturada, de script em alto nível com tipagem dinâmica fraca e multiparadigma',
-  },
-  {
-    id: 3,
-    imageUrl: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRUmnFYeOmmAlNV9_ZTu5cYgS2L55Q1pt9QyA&s',
-    name: 'Postgres',
-    level: 'Avançado',
-    description: 'PostgreSQL é um sistema gerenciador de banco de dados objeto relacional, desenvolvido como projeto de código aberto.',
-  }
-  // Adicione mais skills conforme necessário
-];
-
-export const Home: React.FC = ({navigation}:any) => {
-  const [skills, setSkills] = useState<Skill[]>(initialSkills);
+// Define a interface para o token decodificado
+interface DecodedToken {
+  userId: string;
+}
+const Home: React.FC = ({ navigation }: any) => {
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [showModal, setShowModal] = useState<boolean>(false);
   const [showLevelModal, setShowLevelModal] = useState<boolean>(false);
-  const [editingSkillId, setEditingSkillId] = useState<number | null>(null);
+  const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [newLevel, setNewLevel] = useState<string>('');
+  const [selectedOption, setSelectedOption] = useState<string>('');
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const handleImageClick = (skill: Skill) => {
-    setSelectedSkill(skill);
-    setShowModal(true);
+  useEffect(() => {
+    const fetchUserId = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          const decodedToken = jwtDecode<DecodedToken>(token);
+          setUserId(decodedToken.userId);
+        } else {
+          // Redireciona para a tela de Login se o token não estiver presente
+          navigation.navigate('Login');
+        }
+      } catch (error) {
+        console.error('Erro ao decodificar o token:', error);
+        navigation.navigate('Login');
+      }
+    };
+
+    fetchUserId();
+  }, [navigation]);
+
+  useEffect(() => {
+    const fetchSkills = async () => {
+      if (userId) {
+        try {
+          const token = await AsyncStorage.getItem('token');
+          if (!token) throw new Error('Token não encontrado');
+
+          const response = await fetch(`http://10.0.2.2:8080/usuarios/skills/${userId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) throw new Error('Erro ao carregar skills');
+          const data = await response.json();
+          setSkills(data);
+        } catch (error) {
+          console.error('Erro ao carregar skills:', error);
+          Alert.alert('Erro', 'Não foi possível carregar as skills.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    const fetchAvailableSkills = async () => {
+      try {
+        const response = await fetch('http://10.0.2.2:8080/skills');
+        if (!response.ok) throw new Error('Erro ao carregar habilidades disponíveis');
+        const data = await response.json();
+        setAvailableSkills(data);
+      } catch (error) {
+        console.error('Erro ao carregar habilidades disponíveis:', error);
+      }
+    };
+
+    fetchSkills();
+    fetchAvailableSkills();
+  }, [userId]);
+
+  const handleDeleteSkill = async (id: string) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) throw new Error('Token não encontrado');
+
+      await fetch(`http://10.0.2.2:8080/usuarios/skills/${userId}/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      setSkills(prevSkills => prevSkills.filter(skill => skill.id !== id));
+    } catch (error) {
+      console.error('Erro ao excluir skill:', error);
+      Alert.alert('Erro', 'Não foi possível excluir a skill.');
+    }
   };
 
-  const handleLevelClick = (id: number, currentLevel: string) => {
+  const handleLevelChange = async (level: string) => {
+    if (editingSkillId && userId) {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) throw new Error('Token não encontrado');
+
+        const response = await fetch(`http://10.0.2.2:8080/usuarios/skills/${userId}/${editingSkillId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ level }),
+        });
+
+        if (!response.ok) throw new Error('Erro ao atualizar skill');
+        const updatedSkill = await response.json();
+        setSkills(prevSkills => prevSkills.map(skill =>
+          skill.id === editingSkillId ? updatedSkill : skill
+        ));
+        setShowLevelModal(false);
+      } catch (error) {
+        console.error('Erro ao atualizar skill:', error);
+        Alert.alert('Erro', 'Não foi possível atualizar a skill.');
+      }
+    }
+  };
+
+  const handleSaveSkill = async () => {
+    if (selectedOption && userId) {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (!token) throw new Error('Token não encontrado');
+
+        const response = await fetch('http://10.0.2.2:8080/usuarios/skills', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            usuarioId: userId,
+            skillId: selectedOption,
+            level: 'INICIANTE',
+          }),
+        });
+
+        if (!response.ok) throw new Error('Erro ao salvar skill');
+        const newSkill = await response.json();
+        setSkills(prevSkills => [...prevSkills, newSkill]);
+        setShowModal(false);
+      } catch (error) {
+        console.error('Erro ao salvar skill:', error);
+        Alert.alert('Erro', 'Não foi possível adicionar a skill.');
+      }
+    }
+  };
+
+  const handleOpenModal = () => setShowModal(true);
+  const handleCloseModal = () => setShowModal(false);
+  const handleOpenLevelModal = (id: string, currentLevel: string) => {
     setEditingSkillId(id);
     setNewLevel(currentLevel);
     setShowLevelModal(true);
   };
 
-  const handleLevelChange = (level: string) => {
-    setSkills(
-      skills.map((skill) =>
-        skill.id === editingSkillId ? { ...skill, level: level } : skill
-      )
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
     );
-    setShowLevelModal(false);
-    setEditingSkillId(null);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedSkill(null);
-  };
-
-  const handleDeleteSkill = (id: number) => {
-    setSkills(skills.filter((skill) => skill.id !== id));
-  };
-
-  const handleAddSkill = () => {
-    setShowModal(true);
-  };
-
-  const handleSaveSkill = (newSkill: Skill) => {
-    setSkills([...skills, newSkill]);
-    setShowModal(false);
-  };
-
-  const handleCancel = () => {
-    setShowModal(false);
-  };
+  }
 
   return (
-    <View style={styled.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Skills</Text>
       <View style={styles.skillset}>
-        {skills.map((skill) => (
+        {skills.map(skill => (
           <View key={skill.id} style={styles.skill}>
-            <TouchableOpacity onPress={() => handleImageClick(skill)}>
-              <Image source={{ uri: skill.imageUrl }} style={styles.image} />
+            <TouchableOpacity onPress={() => setSelectedSkill(skill)}>
+              <Image source={{ uri: skill.imagemUrl }} style={styles.image} />
             </TouchableOpacity>
-            <Text style={styles.name}>{skill.name}</Text>
-            <TouchableOpacity style={styled.Button} onPress={() => handleLevelClick(skill.id, skill.level)}><Text style={styled.Text}>{`${skill.level}`}</Text></TouchableOpacity>
-            <TouchableOpacity style={styled.Button} onPress={() => handleDeleteSkill(skill.id)}><Text style={styled.Text}>Excluir</Text></TouchableOpacity>
+            <Text style={styles.name}>{skill.nome}</Text>
+            <TouchableOpacity style={styles.button} onPress={() => handleOpenLevelModal(skill.id, skill.level || '')}>
+              <Text style={styles.buttonText}>{skill.level || 'Definir Nível'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={() => handleDeleteSkill(skill.id)}>
+              <Text style={styles.buttonText}>Excluir</Text>
+            </TouchableOpacity>
           </View>
         ))}
       </View>
 
-      <TouchableOpacity style={styled.Button} onPress={handleAddSkill}><Text style={styled.Text}>Adicionar Skill</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={handleOpenModal}>
+        <Text style={styles.buttonText}>Adicionar Skill</Text>
+      </TouchableOpacity>
 
       <Modal visible={showModal} transparent={true} animationType="slide">
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Adicionar Skill</Text>
-            <Text>Selecione uma skill:</Text>
-            <Button title="React" onPress={() => handleSaveSkill({
-              id: skills.length + 1,
-              imageUrl: '',
-              name: 'Nova Skill',
-              level: 'Iniciante',
-              description: 'Descrição da nova skill',
-            })} />
-            <Button title="Cancelar" onPress={handleCancel} />
+            <View style={styles.modalActions}>
+              {availableSkills.map(skill => (
+                <Button
+                  key={skill.id}
+                  title={skill.nome}
+                  onPress={() => {
+                    setSelectedOption(skill.id);
+                    handleSaveSkill();
+                  }}
+                />
+              ))}
+              <Button title="Cancelar" onPress={handleCloseModal} />
+            </View>
           </View>
         </View>
       </Modal>
 
       {selectedSkill && (
-        <Modal visible={showModal} transparent={true} animationType="slide">
+        <Modal visible={Boolean(selectedSkill)} transparent={true} animationType="slide">
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{selectedSkill.name}</Text>
-              <Text>{selectedSkill.description}</Text>
-              <TouchableOpacity style={styled.Button2} onPress={handleCloseModal}><Text style={styled.Text}>FECHAR</Text></TouchableOpacity>
+              <Text style={styles.modalTitle}>{selectedSkill.nome}</Text>
+              <Text>{selectedSkill.descricao}</Text>
+              <TouchableOpacity style={styles.button} onPress={() => setSelectedSkill(null)}>
+                <Text style={styles.buttonText}>Fechar</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -137,50 +257,84 @@ export const Home: React.FC = ({navigation}:any) => {
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Editar Nível</Text>
-              <TouchableOpacity style={styled.Button2} onPress={() => handleLevelChange('Iniciante')}><Text style={styled.Text}>Iniciante</Text></TouchableOpacity>
-              <TouchableOpacity style={styled.Button2} onPress={() => handleLevelChange('Intermediario')}><Text style={styled.Text}>Intermediario</Text></TouchableOpacity>
-              <TouchableOpacity style={styled.Button2} onPress={() => handleLevelChange('Avancado')}><Text style={styled.Text}>Avançado</Text></TouchableOpacity>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => handleLevelChange('INICIANTE')}
+              >
+                <Text style={styles.buttonText}>INICIANTE</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => handleLevelChange('INTERMEDIARIO')}
+              >
+                <Text style={styles.buttonText}>INTERMEDIÁRIO</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => handleLevelChange('AVANCADO')}
+              >
+                <Text style={styles.buttonText}>AVANÇADO</Text>
+              </TouchableOpacity>
+              <Button title="Cancelar" onPress={() => setShowLevelModal(false)} />
             </View>
           </View>
         </Modal>
       )}
 
-      <TouchableOpacity style={styled.Button} onPress={() => navigation.navigate('Login')}><Text style={styled.Text}>Log-out</Text></TouchableOpacity>
-    </View>
+      <TouchableOpacity style={styles.logoutButton} onPress={() => {
+        AsyncStorage.removeItem('token');
+        navigation.navigate('Login');
+      }}>
+        <Text style={styles.logoutButtonText}>Logout</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    padding: 20,
+  },
+  loadingContainer: {
     flex: 1,
-    padding: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color:'#ddd'
+    marginBottom: 20,
   },
   skillset: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   skill: {
-    margin: 8,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
+    width: '48%',
+    margin: '1%',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 10,
     alignItems: 'center',
   },
   image: {
     width: 100,
     height: 100,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   name: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    color:'#ddd'
+  },
+  button: {
+    backgroundColor: '#007bff',
+    padding: 10,
+    borderRadius: 5,
+    marginVertical: 5,
+  },
+  buttonText: {
+    color: '#fff',
+    textAlign: 'center',
   },
   modalContainer: {
     flex: 1,
@@ -191,13 +345,29 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: '#fff',
     padding: 20,
-    borderRadius: 8,
+    borderRadius: 10,
     width: '80%',
+    alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 15,
+  },
+  modalActions: {
+    width: '100%',
+  },
+  logoutButton: {
+    backgroundColor: '#dc3545',
+    padding: 10,
+    borderRadius: 5,
+    marginVertical: 20,
+  },
+  logoutButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 16,
   },
 });
-export default Home
+
+export default Home;

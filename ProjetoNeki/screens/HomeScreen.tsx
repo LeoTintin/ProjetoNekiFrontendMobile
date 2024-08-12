@@ -10,10 +10,11 @@ import {
   TouchableOpacity,
   Image,
   StyleSheet,
-  Button
+  ImageBackground,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {jwtDecode} from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
+import { styled } from './style';
 
 // Define a interface para Skill
 interface Skill {
@@ -28,7 +29,8 @@ interface Skill {
 interface DecodedToken {
   userId: string;
 }
-const Home: React.FC = ({ navigation }: any) => {
+
+const Home: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -40,19 +42,27 @@ const Home: React.FC = ({ navigation }: any) => {
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [userId, setUserId] = useState<string | null>(null);
 
+  const getUserIdFromToken = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        const decodedToken = jwtDecode<DecodedToken>(token);
+        return decodedToken.userId;
+      }
+      return null;
+    } catch (error) {
+      console.error('Erro ao decodificar o token:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     const fetchUserId = async () => {
-      try {
-        const token = await AsyncStorage.getItem('token');
-        if (token) {
-          const decodedToken = jwtDecode<DecodedToken>(token);
-          setUserId(decodedToken.userId);
-        } else {
-          // Redireciona para a tela de Login se o token não estiver presente
-          navigation.navigate('Login');
-        }
-      } catch (error) {
-        console.error('Erro ao decodificar o token:', error);
+      const id = await getUserIdFromToken();
+      if (id) {
+        setUserId(id);
+      } else {
+        // Redireciona para a tela de Login se o token não estiver presente
         navigation.navigate('Login');
       }
     };
@@ -66,39 +76,60 @@ const Home: React.FC = ({ navigation }: any) => {
         try {
           const token = await AsyncStorage.getItem('token');
           if (!token) throw new Error('Token não encontrado');
-
+  
           const response = await fetch(`http://10.0.2.2:8080/usuarios/skills/${userId}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json', // Adicione o Content-Type se a API exigir
             },
           });
-
+  
           if (!response.ok) throw new Error('Erro ao carregar skills');
           const data = await response.json();
+          
+          // Verifique o formato dos dados retornados
+          console.log('Skills carregadas:', data);
           setSkills(data);
         } catch (error) {
           console.error('Erro ao carregar skills:', error);
           Alert.alert('Erro', 'Não foi possível carregar as skills.');
-        } finally {''
+        } finally {
           setLoading(false);
         }
       }
     };
-
+  
     const fetchAvailableSkills = async () => {
       try {
-        const response = await fetch('http://10.0.2.2:8080/skills');
-        if (!response.ok) throw new Error('Erro ao carregar habilidades disponíveis');
+        const token = await AsyncStorage.getItem('token');
+          if (!token) throw new Error('Token não encontrado');
+        const response = await fetch('http://10.0.2.2:8080/skills', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json', // Adicione o Content-Type se a API exigir
+          },
+        });
+    
+        if (!response.ok) {
+          throw new Error(`Erro ao carregar habilidades disponíveis: ${response.statusText}`);
+        }
+    
         const data = await response.json();
+    
+        // Verifique o formato dos dados retornados
+        console.log('Habilidades disponíveis carregadas:', data);
         setAvailableSkills(data);
       } catch (error) {
         console.error('Erro ao carregar habilidades disponíveis:', error);
+        Alert.alert('Erro', 'Não foi possível carregar as habilidades disponíveis.');
       }
     };
-
+    
+  
     fetchSkills();
     fetchAvailableSkills();
   }, [userId]);
+  
 
   const handleDeleteSkill = async (id: string) => {
     try {
@@ -124,16 +155,18 @@ const Home: React.FC = ({ navigation }: any) => {
       try {
         const token = await AsyncStorage.getItem('token');
         if (!token) throw new Error('Token não encontrado');
-
+  
         const response = await fetch(`http://10.0.2.2:8080/usuarios/skills/${userId}/${editingSkillId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({ level }),
+          body: JSON.stringify({
+            level: level,
+          }),
         });
-
+  
         if (!response.ok) throw new Error('Erro ao atualizar skill');
         const updatedSkill = await response.json();
         setSkills(prevSkills => prevSkills.map(skill =>
@@ -146,6 +179,7 @@ const Home: React.FC = ({ navigation }: any) => {
       }
     }
   };
+  
 
   const handleSaveSkill = async () => {
     if (selectedOption && userId) {
@@ -194,179 +228,153 @@ const Home: React.FC = ({ navigation }: any) => {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Skills</Text>
-      <View style={styles.skillset}>
-        {skills.map(skill => (
-          <View key={skill.id} style={styles.skill}>
-            <TouchableOpacity onPress={() => setSelectedSkill(skill)}>
-              <Image source={{ uri: skill.imagemUrl }} style={styles.image} />
-            </TouchableOpacity>
-            <Text style={styles.name}>{skill.nome}</Text>
-            <TouchableOpacity style={styles.button} onPress={() => handleOpenLevelModal(skill.id, skill.level || '')}>
-              <Text style={styles.buttonText}>{skill.level || 'Definir Nível'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={() => handleDeleteSkill(skill.id)}>
-              <Text style={styles.buttonText}>Excluir</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
-
-      <TouchableOpacity style={styles.button} onPress={handleOpenModal}>
-        <Text style={styles.buttonText}>Adicionar Skill</Text>
-      </TouchableOpacity>
-
-      <Modal visible={showModal} transparent={true} animationType="slide">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Adicionar Skill</Text>
-            <View style={styles.modalActions}>
-              {availableSkills.map(skill => (
-                <Button
-                  key={skill.id}
-                  title={skill.nome}
-                  onPress={() => {
-                    setSelectedOption(skill.id);
-                    handleSaveSkill();
-                  }}
-                />
-              ))}
-              <Button title="Cancelar" onPress={handleCloseModal} />
+    <ImageBackground
+      source={{ uri: 'https://t3.ftcdn.net/jpg/01/09/93/84/360_F_109938452_lyfzlslq2nDMMxmnxVZUIsD2UujLKsbw.jpg' }}
+      style={styles.backgroundImage}
+    >
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Skills</Text>
+        <View style={styles.skillset}>
+          {skills.map(skill => (
+            <View key={skill.id} style={styles.skill}>
+              <TouchableOpacity onPress={() => setSelectedSkill(skill)}>
+                <Image source={{ uri: skill.imagemUrl }} style={styles.image} />
+              </TouchableOpacity>
+              <Text style={styles.name}>{skill.nome}</Text>
+              <TouchableOpacity style={styles.button} onPress={() => handleOpenLevelModal(skill.id, skill.level || '')}>
+                <Text style={styles.buttonText}>{skill.level || 'Definir Nível'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.button} onPress={() => handleDeleteSkill(skill.id)}>
+                <Text style={styles.buttonText}>Excluir</Text>
+              </TouchableOpacity>
             </View>
-          </View>
+          ))}
         </View>
-      </Modal>
 
-      {selectedSkill && (
-        <Modal visible={Boolean(selectedSkill)} transparent={true} animationType="slide">
+        <TouchableOpacity style={styles.button} onPress={handleOpenModal}>
+          <Text style={styles.buttonText}>Adicionar Skill</Text>
+        </TouchableOpacity>
+
+        <Modal visible={showModal} transparent={true} animationType="slide">
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{selectedSkill.nome}</Text>
-              <Text>{selectedSkill.descricao}</Text>
-              <TouchableOpacity style={styles.button} onPress={() => setSelectedSkill(null)}>
+              <Text style={styles.modalTitle}>Adicionar Skill</Text>
+              <View style={styles.modalActions}>
+                {availableSkills.map(skill => (
+                  <TouchableOpacity style={styles.button} key={skill.id} onPress={() => { setSelectedOption(skill.id); handleSaveSkill(); }}>
+                    <Text style={styles.buttonText}>{skill.nome}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity style={styles.button} onPress={handleCloseModal}>
                 <Text style={styles.buttonText}>Fechar</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
-      )}
 
-      {showLevelModal && (
         <Modal visible={showLevelModal} transparent={true} animationType="slide">
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Editar Nível</Text>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => handleLevelChange('INICIANTE')}
-              >
-                <Text style={styles.buttonText}>INICIANTE</Text>
+              <Text style={styles.modalTitle}>Alterar Nível</Text>
+              <TouchableOpacity style={styles.button} onPress={() => handleLevelChange('INICIANTE')}>
+                <Text style={styles.buttonText}>Iniciante</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => handleLevelChange('INTERMEDIARIO')}
-              >
-                <Text style={styles.buttonText}>INTERMEDIÁRIO</Text>
+              <TouchableOpacity style={styles.button} onPress={() => handleLevelChange('INTERMEDIARIO')}>
+                <Text style={styles.buttonText}>Intermediário</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => handleLevelChange('AVANCADO')}
-              >
-                <Text style={styles.buttonText}>AVANÇADO</Text>
+              <TouchableOpacity style={styles.button} onPress={() => handleLevelChange('AVANCADO')}>
+                <Text style={styles.buttonText}>Avançado</Text>
               </TouchableOpacity>
-              <Button title="Cancelar" onPress={() => setShowLevelModal(false)} />
+              <TouchableOpacity style={styles.button} onPress={() => setShowLevelModal(false)}>
+                <Text style={styles.buttonText}>Fechar</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
-      )}
-
-      <TouchableOpacity style={styles.logoutButton} onPress={() => {
-        AsyncStorage.removeItem('token');
-        navigation.navigate('Login');
-      }}>
-        <Text style={styles.logoutButtonText}>Logout</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flexGrow: 1,
     padding: 20,
   },
-  loadingContainer: {
+  backgroundImage: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    textAlign: 'center',
+    marginVertical: 20,
   },
   skillset: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   skill: {
     width: '48%',
-    margin: '1%',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    marginBottom: 20,
     padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 10,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   image: {
     width: 100,
     height: 100,
-    marginBottom: 10,
+    borderRadius: 10,
   },
   name: {
     fontSize: 16,
     fontWeight: 'bold',
+    marginVertical: 10,
   },
   button: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#007BFF',
     padding: 10,
     borderRadius: 5,
     marginVertical: 5,
   },
   buttonText: {
     color: '#fff',
-    textAlign: 'center',
+    fontSize: 16,
   },
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 10,
     width: '80%',
-    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 15,
+    marginBottom: 20,
   },
   modalActions: {
-    width: '100%',
+    marginBottom: 20,
   },
-  logoutButton: {
-    backgroundColor: '#dc3545',
-    padding: 10,
-    borderRadius: 5,
-    marginVertical: 20,
-  },
-  logoutButtonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontSize: 16,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
